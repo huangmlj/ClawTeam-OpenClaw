@@ -370,16 +370,10 @@ Leader agent:
 A TOML template spawns a complete 7-agent investment team with one command:
 
 ```bash
-# OpenClaw (default)
 clawteam launch hedge-fund --team fund1 --goal "Analyze AAPL, MSFT, NVDA for Q2 2026"
-
-# Hermes Agent — use the Hermes-native variant that stores findings in gbrain
-clawteam launch hedge-fund-hermes --team-name fund1 --goal "Analyze AAPL" --force
 ```
 
 Seven agents total: 5 analysts (value, growth, technical, fundamentals, sentiment) work in parallel, a risk manager synthesizes all signals, and a portfolio manager makes the final decision.
-
-Hermes users: the `hedge-fund-hermes` variant rewrites each analyst's task to use `mcp_gbrain_put_page` for output persistence instead of `clawteam inbox send`. Findings land in gbrain pages with predictable slugs (`<team-name>-buffett`, `<team-name>-growth`, etc.), persist across sessions, and can be queried later.
 
 Templates are TOML files — **create your own** for any domain.
 
@@ -432,7 +426,7 @@ Templates are TOML files — **create your own** for any domain.
 </table>
 
 ### v0.3.0 — Production Intelligence *(New)*
-- **Hermes Agent Support** — native spawn target across NativeCliAdapter, tmux, and subprocess backends. Auto-inserts `chat` subcommand, tags with `--source tool`. Ships with `hedge-fund-hermes` template that uses gbrain for output persistence.
+- **Hermes Agent Support** — native spawn target across NativeCliAdapter, tmux, and subprocess backends. Auto-inserts `chat` subcommand, tags spawned sessions with `--source tool` so they don't pollute the user's session list.
 - **Cost Dashboard** — real-time token/cost by agent, model, and task (`clawteam board cost`). No competitor has this.
 - **Circuit Breaker** — healthy → degraded → open tri-state with half-open probing
 - **Retry with Backoff** — `spawn_with_retry()` for resilient agent spawning
@@ -495,52 +489,36 @@ Once the skill is installed, talk to your OpenClaw bot in any channel:
 
 ClawTeam ships first-class support for [Hermes Agent](https://github.com/NousResearch/hermes-agent) — Nous Research's self-improving CLI agent. Hermes workers spawn via the same adapter path as OpenClaw (tmux or subprocess), but use Hermes-native command flags (`hermes chat --yolo --source tool -q "<task>"`).
 
-Hermes workers automatically inherit MCP servers configured in `~/.hermes/config.yaml`. If you have [gbrain](https://github.com/garrytan/gbrain) or any other MCP server set up, every spawned worker gets that capability for free.
+Hermes workers automatically inherit any MCP servers configured in `~/.hermes/config.yaml`, so whatever tools you've wired into Hermes are available to every spawned worker.
 
 | Capability | Hermes Alone | Hermes + ClawTeam |
 |-----------|--------------|-------------------|
 | **Parallelism** | Single session | Spawn N workers in tmux windows |
 | **Coordination** | Manual | Kanban + inboxes + task dependencies |
 | **Isolation** | Shared working dir | Git worktrees per agent |
-| **Persistence** | In-session only | gbrain pages via `hedge-fund-hermes` template |
 | **Session hygiene** | Mixes with user sessions | `--source tool` tag keeps them separate |
 
-**Two ways to use Hermes with ClawTeam:**
+**Using Hermes with ClawTeam:**
 
-**1. Hermes-native template (recommended):** `clawteam launch hedge-fund-hermes --team-name <name> --goal "..." --force`
+All built-in templates (`hedge-fund`, `research-paper`, `code-review`, `strategy-room`) default to spawning OpenClaw workers. Hermes users pass `--command hermes` to override:
 
-The `hedge-fund-hermes` template sets `command = ["hermes"]` by default. Each analyst stores findings in gbrain via `mcp_gbrain_put_page`. No `--command hermes` flag needed. Findings persist across sessions and are queryable later.
+```bash
+clawteam launch hedge-fund --team-name <name> --goal "..." --command hermes --force
+```
 
-**2. OpenClaw-style template with Hermes workers:** `clawteam launch hedge-fund --team-name <name> --goal "..." --command hermes --force`
+Or spawn manually, passing `hermes` as the trailing positional argument:
 
-Works but requires `--command hermes` to override the template default. Hermes workers don't always execute the `clawteam inbox send` commands that OpenClaw workers use, so you'll likely need to capture tmux scrollback to read reports. The Hermes-native template is cleaner.
+```bash
+clawteam spawn --team <team> --agent-name <name> --task "..." --no-workspace hermes
+```
+
+Note: the built-in templates were designed around OpenClaw's `clawteam inbox send` coordination pattern. Hermes workers sometimes complete their analysis without executing the inbox-send command. If `clawteam inbox peek` returns empty while the kanban shows `COMPLETED`, capture tmux scrollback directly:
+
+```bash
+tmux capture-pane -t clawteam-<team>:<window-index> -p -S -500
+```
 
 **Installation:** see Step 5b in the Install section.
-
-```
-  You ────► Hermes chat ────► clawteam launch hedge-fund-hermes
-                                         │
-                                         ▼
-                             ┌─────────────────────────┐
-                             │  hermes chat (worker 1) │
-                             │  hermes chat (worker 2) │
-                             │  ...                     │
-                             │  hermes chat (worker 7) │
-                             └──────────┬──────────────┘
-                                        │
-                                        ▼
-                             ┌─────────────────────────┐
-                             │  mcp_gbrain_put_page    │
-                             │  (per-analyst findings) │
-                             └──────────┬──────────────┘
-                                        │
-                                        ▼
-                             ┌─────────────────────────┐
-                             │  portfolio-manager      │
-                             │  mcp_gbrain_query       │
-                             │  → consolidated report  │
-                             └─────────────────────────┘
-```
 
 ---
 
@@ -718,7 +696,6 @@ Areas we'd love help with:
 - [OpenClaw](https://openclaw.ai) — default agent backend
 - [Hermes Agent](https://github.com/NousResearch/hermes-agent) — Nous Research's self-improving CLI agent
 - [Claude Code](https://claude.ai/claude-code) and [Codex](https://openai.com/codex) — supported AI coding agents
-- [gbrain](https://github.com/garrytan/gbrain) — knowledge brain used by the `hedge-fund-hermes` template
 - [ai-hedge-fund](https://github.com/virattt/ai-hedge-fund) — hedge fund template inspiration
 - [CLI-Anything](https://github.com/HKUDS/CLI-Anything) — sister project
 
