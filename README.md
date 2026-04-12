@@ -294,17 +294,23 @@ metadata:
 Each worker runs in its own tmux window with git worktree isolation.
 
 ```bash
-# Create team
+# Manual: create team + spawn workers one-by-one
 clawteam team spawn-team my-team -d "Goal description" -n leader
-
-# Spawn Hermes workers (pass 'hermes' as the trailing command)
 clawteam spawn -t my-team -n researcher --task "Research X" --no-workspace hermes
 clawteam spawn -t my-team -n writer --task "Write report" --no-workspace hermes
+
+# Or: use a built-in template, override command to hermes
+clawteam launch hedge-fund --team-name tesla --goal "Analyze TSLA" --command hermes --force
+clawteam launch research-paper --team-name papers --goal "Review arxiv 2024.X" --command hermes --force
+clawteam launch code-review --team-name review --goal "Review this PR" --command hermes --force
+clawteam launch strategy-room --team-name strat --goal "Business strategy" --command hermes --force
 
 # Monitor
 clawteam board show my-team        # Kanban view
 clawteam board attach my-team      # Tmux tiled view
 ```
+
+**Important:** All 4 built-in templates (`hedge-fund`, `research-paper`, `code-review`, `strategy-room`) default to `command = ["openclaw"]`. Hermes users must pass `--command hermes` to `clawteam launch` or those templates will try to spawn OpenClaw workers and fail with gateway token errors.
 
 ## Spawn flags
 
